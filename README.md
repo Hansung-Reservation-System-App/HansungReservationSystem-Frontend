@@ -95,3 +95,18 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+# RN에서 주로 사용하는 화면 전환
+1. React Navigation 설치
+먼저 React Navigation을 설치해줍니다.
+- npm install @react-navigation/native
+- npm install @react-navigation/stack
+- npm install react-native-screens react-native-safe-area-context
+그리고 React Native Gesture Handler와 React Native Reanimated도 설치해야 합니다.
+- npm install react-native-gesture-handler react-native-reanimated
+설치가 완료된 후, **react-native-gesture-handler**와 **react-native-reanimated**를 앱의 index.js나 App.js에서 연결해줍니다. (이 프로젝트에서는 App.tsx)
+- import 'react-native-gesture-handler'; // 반드시 맨 위에 import 해줘야 함!
+
+# react-native-worklets 설치
+에러 메시지가 뜬다면 **react-native-worklets**가 누락되었다고 명시하고 있기 때문에, 해당 패키지를 npm 또는 **yarn**을 이용해 설치해줘야 합니다.
+- npm install react-native-worklets
