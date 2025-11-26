@@ -11,7 +11,7 @@ export default function FacilityHeader({ title, onBack }: any) {
       end={{ x: 1, y: 0 }}
       style={styles.header}
     >
-      {/* ⬅ 뒤로가기 */}
+      {/*  뒤로가기 */}
       <TouchableOpacity style={styles.backBtn} onPress={onBack}>
         <Ionicons name="chevron-back" size={26} color="#fff" />
       </TouchableOpacity>
@@ -27,7 +27,7 @@ export default function FacilityHeader({ title, onBack }: any) {
 
 const styles = StyleSheet.create({
   header: {
-    width: "100%",       // ⬅ 화면 전체 폭
+    width: "100%",       //  화면 전체 폭
     height: 65,          // 피그마 스타일에 맞춰 약간 크게
     flexDirection: "row",
     alignItems: "center",
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rightSpace: {
-    width: 40,           // backBtn과 동일한 너비 → 가운데 정렬됨
+    width: 40,           // 가운데 정렬
   },
   title: {
     color: "#fff",
