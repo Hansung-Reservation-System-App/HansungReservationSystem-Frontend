@@ -6,8 +6,19 @@ import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import PasswordRecoveryScreen from '../screens/PasswordRecoveryScreen';
 import ReservationHomeScreen from "../screens/ReservationHomeScreen";
+import MyPageScreen from "../screens/MyPageScreen"
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+  PasswordRecovery: undefined;
+  Home: undefined;
+  Reservation: undefined;
+  MyPage: undefined;
+};
+
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   return (
@@ -17,6 +28,7 @@ export default function RootNavigator() {
       <Stack.Screen name="PasswordRecovery" component={PasswordRecoveryScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Reservation" component={ReservationHomeScreen}/>
+      <Stack.Screen name="MyPage" component={MyPageScreen}/>
     </Stack.Navigator>
   );
 }
