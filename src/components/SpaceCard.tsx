@@ -9,6 +9,7 @@ interface SpaceCardProps {
   category: string;
   status: string; // 여유 / 보통 / 혼잡
   image: any;
+  onPress?: () => void;
 }
 
 // 퍼센트 대신 실제 bar 비율을 number로 설정
@@ -31,6 +32,7 @@ export default function SpaceCard({
   category,
   status,
   image,
+  onPress,
 }: SpaceCardProps) {
   const bar = getBarInfo(status);
 
@@ -60,7 +62,7 @@ export default function SpaceCard({
         <View style={{ flex: 1 - bar.flex }} />
       </View>
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={onPress}>
         <Text style={styles.buttonText}>예약하기</Text>
       </TouchableOpacity>
     </View>
