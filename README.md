@@ -110,3 +110,17 @@ To learn more about React Native, take a look at the following resources:
 # react-native-worklets 설치
 에러 메시지가 뜬다면 **react-native-worklets**가 누락되었다고 명시하고 있기 때문에, 해당 패키지를 npm 또는 **yarn**을 이용해 설치해줘야 합니다.
 - npm install react-native-worklets
+
+# react-native-vector-icons 설치
+- npm install react-native-vector-icons
+
+# Feather 아이콘을 사용하려면 @react-native-vector-icons/feather 패키지를 추가로 설치해야 합니다.
+- npm install @react-native-vector-icons/feather
+
+# 이 패키지는 **react-navigation-stack**보다 더 최신 버전의 스택 네비게이션입니다.
+설치 명령어는 다음과 같습니다
+- npm install @react-navigation/native-stack
+
+# react-native-linear-gradient 설치
+react-native-linear-gradient 모듈이 설치되지 않았거나, 누락된 경우 설치해야 합니다. 아래 명령어로 모듈을 설치하세요.
+- npm install react-native-linear-gradient

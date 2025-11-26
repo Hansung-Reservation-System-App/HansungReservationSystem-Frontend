@@ -22,8 +22,7 @@ export default function LoginScreen({ navigation }: any) {
       //   password: pw,
       // });
 
-      // response.data.isSucess
-      if (true) {
+      if (true) { // response.data.isSucess
         //Alert.alert('로그인 성공', response.data.message);
         navigation.navigate('Home');
       } else {
