@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Image } from 'react-native';
 
@@ -12,15 +13,13 @@ export default function PasswordRecoveryScreen() {
   const onRecoverPassword = async () => {
     setLoading(true);
     try {
-      // 여기에 비밀번호 찾기 API 호출 부분 추가 예정
-      // 예시: 
-      // const response = await axios.post('http://your-api-endpoint/password-recovery', {
-      //   studentId,
-      //   phoneNumber,
-      // });
+      const response = await axios.post('http://10.0.2.2:8080/api/users/search-password', {
+      userId: studentId,
+      phoneNumber: phoneNumber,
+    });
 
       // 서버 연결 준비 중이라서 일단 성공 알림만 띄움
-      Alert.alert('비밀번호 찾기 성공', '비밀번호 재설정을 위한 이메일을 보냈습니다.');
+      Alert.alert('비밀번호 찾기 성공', '비밀번호는 ' + response.data.data + ' 입니다.');
     } catch (error) {
       console.error(error);
       Alert.alert('비밀번호 찾기 실패', '서버에 연결할 수 없습니다.');
@@ -59,7 +58,7 @@ export default function PasswordRecoveryScreen() {
         <TextInput
           value={phoneNumber}
           onChangeText={setPhoneNumber}
-          placeholder="010-1234-5678"
+          placeholder="01012345678"
           keyboardType="phone-pad"
           style={s.input}
           editable={!loading}

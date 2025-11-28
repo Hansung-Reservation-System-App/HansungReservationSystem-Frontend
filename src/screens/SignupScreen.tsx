@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState } from 'react';
 import {
   View,
@@ -10,8 +11,10 @@ import {
   Image
 } from 'react-native';
 
-export default function SignupScreen() {
+export default function SignupScreen({ navigation }: any) {
   const [studentId, setStudentId] = useState('');
+  const [studentName, setStudentName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [pw, setPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,16 +23,20 @@ export default function SignupScreen() {
 
   const onSignup = async () => {
     setLoading(true);
-    try {
-      // 여기에 회원가입 API 호출 부분 추가 예정
-      // 예시: 
-      // const response = await axios.post('http://your-api-endpoint', {
-      //   userId: studentId,
-      //   password: pw,
-      // });
+    try { 
+      const response = await axios.post('http://10.0.2.2:8080/api/users/register', {
+        name: studentName,
+        userId: studentId,
+        phoneNumber: phoneNumber,
+        password: pw,
+    });
 
-      // 서버 연결 준비 중이라서 일단 성공 알림만 띄움
-      Alert.alert('회원가입 성공', '회원가입이 완료되었습니다!');
+    if (response.data.isSucess) {
+      Alert.alert('회원가입 성공', response.data.message);
+      navigation.navigate('Login');
+    } else {
+        Alert.alert('회원가입 실패', '서버 응답 오류');
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('회원가입 실패', '서버에 연결할 수 없습니다.');
@@ -51,11 +58,35 @@ export default function SignupScreen() {
       <Text style={s.title}>회원가입</Text>
 
       <View style={s.field}>
+        <Text style={s.label}>이름</Text>
+        <TextInput
+          value={studentName}
+          onChangeText={setStudentName}
+          placeholder="홍길동"
+          keyboardType="numeric"
+          style={s.input}
+          editable={!loading}
+        />
+      </View>
+
+      <View style={s.field}>
         <Text style={s.label}>학번</Text>
         <TextInput
           value={studentId}
           onChangeText={setStudentId}
           placeholder="2023123"
+          keyboardType="numeric"
+          style={s.input}
+          editable={!loading}
+        />
+      </View>
+
+      <View style={s.field}>
+        <Text style={s.label}>전화번호</Text>
+        <TextInput
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+          placeholder="01012345678"
           keyboardType="numeric"
           style={s.input}
           editable={!loading}

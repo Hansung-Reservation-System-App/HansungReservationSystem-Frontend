@@ -21,7 +21,6 @@ export default function LoginScreen({ navigation }: any) {
       userId: studentId,  // Swagger에 맞게 userId로 수정
       password: pw,       // 비밀번호는 그대로 전달
     });
-    console.log(response);
 
       if (response.data.isSucess) {
         //Alert.alert('로그인 성공', response.data.message);
