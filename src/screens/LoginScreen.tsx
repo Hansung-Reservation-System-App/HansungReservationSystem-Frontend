@@ -17,13 +17,12 @@ export default function LoginScreen({ navigation }: any) {
   const onLogin = async () => {
     setLoading(true);
     try {
-      // const response = await axios.post('http://:8080/api10.0.2.2/users/login', {
-      //   userId: studentId,
-      //   password: pw,
-      // });
+      const response = await axios.post('http://10.0.2.2:8080/api/users/login', {
+      userId: studentId,  // Swagger에 맞게 userId로 수정
+      password: pw,       // 비밀번호는 그대로 전달
+    });
 
-      // response.data.isSucess
-      if (true) {
+      if (response.data.isSucess) {
         //Alert.alert('로그인 성공', response.data.message);
         navigation.navigate('Home');
       } else {
