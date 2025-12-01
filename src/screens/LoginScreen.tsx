@@ -23,8 +23,8 @@ export default function LoginScreen({ navigation }: any) {
     });
 
       if (response.data.isSucess) {
-        //Alert.alert('로그인 성공', response.data.message);
-        navigation.navigate('Home');
+        const userIdFromServer = response.data.data.userId; // 실제 구조에 맞게 수정
+        navigation.navigate('Home', { userId: userIdFromServer });
       } else {
         Alert.alert('로그인 실패', '서버 응답 오류');
       }

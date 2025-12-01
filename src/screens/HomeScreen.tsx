@@ -8,9 +8,11 @@ import Colors from "../constants/Colors";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 
-export default function HomeScreen({ navigation }: any) {
+export default function HomeScreen({ navigation, route }: any) {
   const [spaces, setSpaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const userId = route?.params?.userId; //Login에서 넘겨준 userId
 
   const loadFacilities = async () => {
     try {
@@ -53,7 +55,7 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HomeHeader />
+      <HomeHeader userId={userId} />
 
       <View style={styles.searchBox}>
         <TextInput

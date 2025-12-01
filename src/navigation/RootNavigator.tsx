@@ -12,9 +12,9 @@ export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
   PasswordRecovery: undefined;
-  Home: undefined;
+  Home: { userId: string };
   Reservation: undefined;
-  MyPage: undefined;
+  MyPage: { userId: string };
 };
 
 

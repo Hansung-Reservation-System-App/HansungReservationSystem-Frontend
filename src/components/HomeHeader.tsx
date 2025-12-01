@@ -6,14 +6,18 @@ import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from '../navigation/RootNavigator';
 
-type NavigationProp = StackNavigationProp<RootStackParamList>;
+type NavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
-export default function HomeHeader() {
+type HomeHeaderProps = {
+  userId: string;
+};
+
+export default function HomeHeader({ userId }: any) {
   const navigation = useNavigation<NavigationProp>();
 
   // user 아이콘 클릭 시 MyPage로 이동하는 함수
   const goToMyPage = () => {
-    navigation.navigate("MyPage"); // MyPageScreen으로 바로 이동
+    navigation.navigate("MyPage", { userId }); // MyPageScreen으로 바로 이동
   };
   return (
     <LinearGradient
