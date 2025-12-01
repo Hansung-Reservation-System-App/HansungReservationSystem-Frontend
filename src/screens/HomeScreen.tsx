@@ -1,69 +1,44 @@
 // src/screens/HomeScreen.tsx
 
-import React from "react";
-import { View, StyleSheet, TextInput, FlatList } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, TextInput, FlatList, Text, ActivityIndicator } from "react-native";
 import HomeHeader from "../components/HomeHeader";
 import SpaceCard from "../components/SpaceCard";
 import Colors from "../constants/Colors";
 import { SafeAreaView } from "react-native-safe-area-context";
+import axios from "axios";
 
 export default function HomeScreen({ navigation }: any) {
-  const spaces = [
-    {
-      id: "1",
-      title: "공간예약A",
-      time: "오전 9시 - 오후 6시",
-      category: "휴게실",
-      status: "여유",
-      congestion: 30,
-      image: null,
-    },
-    {
-      id: "2",
-      title: "공간예약B",
-      time: "오전 10시 - 오후 8시",
-      category: "스터디룸",
-      status: "보통",
-      congestion: 75,
-      image: null,
-    },
-    {
-      id: "3",
-      title: "공간예약C",
-      time: "오전 9시 - 오후 6시",
-      category: "휴게실",
-      status: "여유",
-      congestion: 30,
-      image: null,
-    },
-    {
-      id: "4",
-      title: "공간예약D",
-      time: "오전 9시 - 오후 6시",
-      category: "휴게실",
-      status: "여유",
-      congestion: 30,
-      image: null,
-    },
-    {
-      id: "5",
-      title: "공간예약E",
-      time: "오전 9시 - 오후 6시",
-      category: "휴게실",
-      status: "여유",
-      congestion: 30,
-      image: null,
-    },
-    {
-      id: "6",
-      title: "공간예약F",
-      time: "오전 9시 - 오후 6시",
-      category: "휴게실",
-      status: "보통",
-      congestion: 90,
-      image: null,
-    },
-  ];
+  const [spaces, setSpaces] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+
+  const loadFacilities = async () => {
+    try {
+      const res = await axios.get("http://10.0.2.2:8080/api/facilities");
+      const list = res.data.data; // FacilityListResponse 배열
+
+
+      const mapped = list.map((item: any) => ({
+        id: item.id,
+        title: item.name,
+        time: item.operatingHours,
+        category: "시설", 
+        status: item.congestionLevel,
+        image: item.imageUrl ? { uri: item.imageUrl } : null,
+      }));
+
+      setSpaces(mapped);
+    } catch (error) {
+      console.error("시설 불러오기 실패:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFacilities();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -79,29 +54,37 @@ export default function HomeScreen({ navigation }: any) {
 
       <View style={{ height: 12 }} />
 
-      {/* 카드 리스트 */}
-      <FlatList
-        data={spaces}
-        numColumns={2}
-        showsVerticalScrollIndicator={false}
-        columnWrapperStyle={{
-          justifyContent: "space-between",
-          marginBottom: 16,
-        }}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 40,
-        }}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <SpaceCard
-            {...item}
-            onPress={() =>
-              navigation.navigate("Reservation", { facility: item })
-            }
-          />
-        )}
-      />
+      {/* 로딩중 표시 */}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={{ marginTop: 10, color: Colors.textGray }}>불러오는 중...</Text>
+        </View>
+      ) : (
+        /* 카드 리스트 */
+        <FlatList
+          data={spaces}
+          numColumns={2}
+          showsVerticalScrollIndicator={false}
+          columnWrapperStyle={{
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 40,
+          }}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <SpaceCard
+              {...item}
+              onPress={() =>
+                navigation.navigate("Reservation", { facilityId: item.id })
+              }
+            />
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
