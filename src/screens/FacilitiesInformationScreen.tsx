@@ -11,11 +11,14 @@ export default function FacilitiesInformationScreen({ facilityId, onNameLoaded }
   const loadFacilityDetail = async () => {
     try {
       const res = await axios.get(`http://10.0.2.2:8080/api/facilities/${facilityId}`);
-      setFacility(res.data.data);
 
-      if (onNameLoaded) {
-        onNameLoaded(res.data.data.name);
+      const data = res.data.data;
+      setFacility(data);
+
+      if (onNameLoaded && data?.name) {
+        onNameLoaded(data.name);
       }
+
     } catch (err) {
       console.error("시설 상세 정보 불러오기 실패:", err);
     } finally {
@@ -27,6 +30,7 @@ export default function FacilitiesInformationScreen({ facilityId, onNameLoaded }
     loadFacilityDetail();
   }, []);
 
+  // 로딩 화면
   if (loading) {
     return (
       <View style={styles.center}>
@@ -36,6 +40,7 @@ export default function FacilitiesInformationScreen({ facilityId, onNameLoaded }
     );
   }
 
+  // null 체크
   if (!facility) {
     return (
       <View style={styles.center}>

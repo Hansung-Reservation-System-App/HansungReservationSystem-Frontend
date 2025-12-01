@@ -17,7 +17,7 @@ export default function FacilityHeader({ title, onBack }: any) {
       </TouchableOpacity>
 
       {/* 중앙 제목 */}
-      <Text style={styles.title}>제목</Text>
+      <Text style={styles.title}>{title}</Text>
 
       {/* 오른쪽 공간(정렬 맞추기용) */}
       <View style={styles.rightSpace} />
