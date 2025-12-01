@@ -12,23 +12,34 @@ export default function HomeScreen({ navigation }: any) {
   const [spaces, setSpaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-
   const loadFacilities = async () => {
     try {
+      // 1) 목록 먼저 불러오기
       const res = await axios.get("http://10.0.2.2:8080/api/facilities");
       const list = res.data.data; // FacilityListResponse 배열
 
+      // 2) 각 시설의 상세 정보로 currentCount, maxCount 가져오기
+      const facilitiesWithDetail = await Promise.all(
+        list.map(async (item: any) => {
+          const detailRes = await axios.get(
+            `http://10.0.2.2:8080/api/facilities/${item.id}`
+          );
+          const detail = detailRes.data.data; // FacilityDetailResponse
 
-      const mapped = list.map((item: any) => ({
-        id: item.id,
-        title: item.name,
-        time: item.operatingHours,
-        category: "시설", 
-        status: item.congestionLevel,
-        image: item.imageUrl ? { uri: item.imageUrl } : null,
-      }));
+          return {
+            id: item.id,
+            title: item.name,
+            time: item.operatingHours,
+            category: "시설",
+            current: detail.currentCount, // ⭐ 상세에서 가져옴
+            max: detail.maxCount, // ⭐ 상세에서 가져옴
+            image: item.imageUrl ? { uri: item.imageUrl } : null,
+          };
+        })
+      );
 
-      setSpaces(mapped);
+      setSpaces(facilitiesWithDetail);
+
     } catch (error) {
       console.error("시설 불러오기 실패:", error);
     } finally {
@@ -44,7 +55,6 @@ export default function HomeScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <HomeHeader />
 
-      {/* 검색 */}
       <View style={styles.searchBox}>
         <TextInput
           placeholder="다른 공간을 찾아보시나요?"
@@ -54,14 +64,12 @@ export default function HomeScreen({ navigation }: any) {
 
       <View style={{ height: 12 }} />
 
-      {/* 로딩중 표시 */}
       {loading ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={{ marginTop: 10, color: Colors.textGray }}>불러오는 중...</Text>
         </View>
       ) : (
-        /* 카드 리스트 */
         <FlatList
           data={spaces}
           numColumns={2}

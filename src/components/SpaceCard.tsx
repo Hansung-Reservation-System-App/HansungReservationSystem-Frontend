@@ -7,22 +7,32 @@ interface SpaceCardProps {
   title: string;
   time: string;
   category: string;
-  status: string; // 여유 / 보통 / 혼잡
+  current: number;     // 현재 인원
+  max: number;         // 최대 인원
   image: any;
   onPress?: () => void;
 }
 
-// 퍼센트 대신 실제 bar 비율을 number로 설정
+// 혼잡도 자동 계산 (current / max)
+const calcStatus = (current: number, max: number) => {
+  const ratio = current / max;
+
+  if (ratio <= 0.3) return "여유";
+  if (ratio <= 0.7) return "보통";
+  return "혼잡";
+};
+
+// 기존 색상 및 flex 값 유지
 const getBarInfo = (status: string) => {
   switch (status) {
     case "여유":
-      return { flex: 0.3, color: "#4CAF50" }; // 초록
+      return { color: "#4CAF50" }; // 초록
     case "보통":
-      return { flex: 0.6, color: "#FFC107" }; // 노랑
+      return { color: "#FFC107" }; // 노랑
     case "혼잡":
-      return { flex: 0.9, color: "#F44336" }; // 빨강
+      return { color: "#F44336" }; // 빨강
     default:
-      return { flex: 0.3, color: "#4CAF50" };
+      return { color: "#4CAF50" };
   }
 };
 
@@ -30,10 +40,18 @@ export default function SpaceCard({
   title,
   time,
   category,
-  status,
+  current,
+  max,
   image,
   onPress,
 }: SpaceCardProps) {
+  // 자동 혼잡도 계산
+  const status = calcStatus(current, max);
+
+  // 게이지 길이 = 실제 비율
+  const barFlex = Math.min(current / max, 1);
+
+  // 색 정보 (기존 유지)
   const bar = getBarInfo(status);
 
   return (
@@ -44,13 +62,11 @@ export default function SpaceCard({
         <View style={styles.imagePlaceholder} />
       )}
 
-      <TouchableOpacity style={styles.likeIcon}>
-        <Feather name="heart" size={20} color={Colors.primary} />
-      </TouchableOpacity>
-
+      {/* 타이틀 / 시간 */}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.time}>{time}</Text>
 
+      {/* 혼잡도 텍스트 */}
       <View style={styles.congestionRow}>
         <Text style={styles.congestionLabel}>혼잡도</Text>
         <Text style={styles.congestionValue}>{status}</Text>
@@ -58,10 +74,16 @@ export default function SpaceCard({
 
       {/* Progress Bar */}
       <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { flex: bar.flex, backgroundColor: bar.color }]} />
-        <View style={{ flex: 1 - bar.flex }} />
+        <View
+          style={[
+            styles.progressFill,
+            { flex: barFlex, backgroundColor: bar.color },
+          ]}
+        />
+        <View style={{ flex: 1 - barFlex }} />
       </View>
 
+      {/* 예약 버튼 */}
       <TouchableOpacity style={styles.button} onPress={onPress}>
         <Text style={styles.buttonText}>예약하기</Text>
       </TouchableOpacity>
@@ -86,14 +108,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 110,
     backgroundColor: "#eaeaea",
-  },
-  likeIcon: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#fff",
-    padding: 6,
-    borderRadius: 20,
   },
   title: { fontSize: 14, fontWeight: "bold", marginTop: 8, paddingHorizontal: 12 },
   time: { color: Colors.textGray, paddingHorizontal: 12, marginTop: 3, fontSize: 12 },
