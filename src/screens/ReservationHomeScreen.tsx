@@ -1,4 +1,3 @@
-// src/screens/ReservationHomeScreen.tsx
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -8,22 +7,20 @@ import SeatReservationScreen from "./SeatReservationScreen";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ReservationHomeScreen({ route, navigation }: any) {
-  const { facilityId } = route.params;
-  const [tab, setTab] = useState("정보");
+  const { facilityId, userId } = route.params;
 
-  // 🔥 헤더에 표시할 시설 이름 (초기값: 시설 정보)
+  const [tab, setTab] = useState<"정보" | "좌석">("정보");
   const [facilityName, setFacilityName] = useState("시설 정보");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-      
-      {/* 🔹 상단 헤더 (시설 이름 표시) */}
+      {/* 상단 그라데이션 헤더 */}
       <FacilityHeader
         title={facilityName}
         onBack={() => navigation.navigate("Home")}
       />
 
-      {/* 🔹 탭 */}
+      {/* 탭 */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           onPress={() => setTab("정보")}
@@ -34,7 +31,12 @@ export default function ReservationHomeScreen({ route, navigation }: any) {
             size={20}
             color={tab === "정보" ? "#5D5FFE" : "#555"}
           />
-          <Text style={[styles.tabText, { color: tab === "정보" ? "#5D5FFE" : "#555" }]}>
+          <Text
+            style={[
+              styles.tabText,
+              { color: tab === "정보" ? "#5D5FFE" : "#555" },
+            ]}
+          >
             정보
           </Text>
         </TouchableOpacity>
@@ -48,20 +50,36 @@ export default function ReservationHomeScreen({ route, navigation }: any) {
             size={20}
             color={tab === "좌석" ? "#5D5FFE" : "#555"}
           />
-          <Text style={[styles.tabText, { color: tab === "좌석" ? "#5D5FFE" : "#555" }]}>
+          <Text
+            style={[
+              styles.tabText,
+              { color: tab === "좌석" ? "#5D5FFE" : "#555" },
+            ]}
+          >
             좌석
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* 🔹 내용 */}
+      {/* 탭 내용 영역 */}
       {tab === "정보" ? (
-        <FacilitiesInformationScreen 
+        <FacilitiesInformationScreen
           facilityId={facilityId}
-          onNameLoaded={setFacilityName}   // 🔥 이름 콜백 전달
+          onNameLoaded={setFacilityName}
         />
       ) : (
-        <SeatReservationScreen facilityId={facilityId} />
+        // 
+        <SeatReservationScreen
+    facilityId={facilityId}
+    userId={userId}
+    facilityName={facilityName}
+    navigation={navigation}
+    onReserved={() => {
+      // 예약 끝나면 정보 탭으로 전환
+      setTab("정보");
+    }}
+  />
+        // 
       )}
     </SafeAreaView>
   );

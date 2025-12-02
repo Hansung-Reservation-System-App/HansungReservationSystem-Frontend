@@ -7,10 +7,11 @@ interface SpaceCardProps {
   title: string;
   time: string;
   category: string;
-  current: number;     // 현재 인원
-  max: number;         // 최대 인원
+  current: number;
+  max: number;
   image: any;
   onPress?: () => void;
+  availableReservation: boolean;  // true일시 예약 가능 /false 예약 필요없음
 }
 
 // 혼잡도 자동 계산 (current / max)
@@ -44,6 +45,7 @@ export default function SpaceCard({
   max,
   image,
   onPress,
+  availableReservation,  // ⭐ props로 내려받음
 }: SpaceCardProps) {
   // 자동 혼잡도 계산
   const status = calcStatus(current, max);
@@ -83,10 +85,12 @@ export default function SpaceCard({
         <View style={{ flex: 1 - barFlex }} />
       </View>
 
-      {/* 예약 버튼 */}
-      <TouchableOpacity style={styles.button} onPress={onPress}>
-        <Text style={styles.buttonText}>예약하기</Text>
-      </TouchableOpacity>
+      {/* 예약 버튼 true일시 예약버튼 생김 */}
+      {availableReservation && (
+        <TouchableOpacity style={styles.button} onPress={onPress}> 
+          <Text style={styles.buttonText}>예약하기</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

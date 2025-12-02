@@ -6,17 +6,21 @@ import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import PasswordRecoveryScreen from '../screens/PasswordRecoveryScreen';
 import ReservationHomeScreen from "../screens/ReservationHomeScreen";
-import MyPageScreen from "../screens/MyPageScreen"
+import MyPageScreen from "../screens/MyPageScreen";
 
 export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
   PasswordRecovery: undefined;
   Home: { userId: string };
-  Reservation: undefined;
+  Reservation: { facilityId: string; userId: string };
   MyPage: { userId: string };
+  SeatReservationScreen: {
+    facilityId: string;
+    userId: string;
+    facilityName: string;
+  };
 };
-
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -27,8 +31,8 @@ export default function RootNavigator() {
       <Stack.Screen name="Signup" component={SignupScreen} />
       <Stack.Screen name="PasswordRecovery" component={PasswordRecoveryScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
-      <Stack.Screen name="Reservation" component={ReservationHomeScreen}/>
-      <Stack.Screen name="MyPage" component={MyPageScreen}/>
+      <Stack.Screen name="Reservation" component={ReservationHomeScreen} />
+      <Stack.Screen name="MyPage" component={MyPageScreen} />
     </Stack.Navigator>
   );
 }

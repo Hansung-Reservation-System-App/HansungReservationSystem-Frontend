@@ -14,40 +14,50 @@ export default function HomeScreen({ navigation, route }: any) {
 
   const userId = route?.params?.userId; //Login에서 넘겨준 userId
 
-  const loadFacilities = async () => {
-    try {
-      // 1) 목록 먼저 불러오기
-      const res = await axios.get("http://10.0.2.2:8080/api/facilities");
-      const list = res.data.data; // FacilityListResponse 배열
+// src/screens/HomeScreen.tsx
 
-      // 2) 각 시설의 상세 정보로 currentCount, maxCount 가져오기
-      const facilitiesWithDetail = await Promise.all(
-        list.map(async (item: any) => {
-          const detailRes = await axios.get(
-            `http://10.0.2.2:8080/api/facilities/${item.id}`
-          );
-          const detail = detailRes.data.data; // FacilityDetailResponse
+// src/screens/HomeScreen.tsx
 
-          return {
-            id: item.id,
-            title: item.name,
-            time: item.operatingHours,
-            category: "시설",
-            current: detail.currentCount, // ⭐ 상세에서 가져옴
-            max: detail.maxCount, // ⭐ 상세에서 가져옴
-            image: item.imageUrl ? { uri: item.imageUrl } : null,
-          };
-        })
-      );
+const loadFacilities = async () => {
+  try {
+    const res = await axios.get("http://10.0.2.2:8080/api/facilities");
+    const list = res.data.data;
 
-      setSpaces(facilitiesWithDetail);
+    const facilitiesWithDetail = await Promise.all(
+      list.map(async (item: any) => {
+        const detailRes = await axios.get(
+          `http://10.0.2.2:8080/api/facilities/${item.id}`
+        );
+        const detail = detailRes.data.data;
 
-    } catch (error) {
-      console.error("시설 불러오기 실패:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        return {
+          id: item.id,
+          title: item.name,
+          time: item.operatingHours,
+          category: "시설",
+          current: detail.currentCount,
+          max: detail.maxCount,
+          image: item.imageUrl ? { uri: item.imageUrl } : null,
+          availableReservation: detail.availableReservation, // FacilityDetailResponse에서 가져옴
+        };
+      })
+    );
+
+    // 예약 가능한 시설 먼저 표시
+    const sortedFacilities = facilitiesWithDetail.sort((a, b) => {
+      return b.availableReservation - a.availableReservation;  // 예약 가능한 시설이 먼저 나오게 정렬
+    });
+
+    setSpaces(sortedFacilities); // 정렬된 데이터를 상태로 설정
+  } catch (error) {
+    console.error("시설 불러오기 실패:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
 
   useEffect(() => {
     loadFacilities();
@@ -72,28 +82,36 @@ export default function HomeScreen({ navigation, route }: any) {
           <Text style={{ marginTop: 10, color: Colors.textGray }}>불러오는 중...</Text>
         </View>
       ) : (
-        <FlatList
-          data={spaces}
-          numColumns={2}
-          showsVerticalScrollIndicator={false}
-          columnWrapperStyle={{
-            justifyContent: "space-between",
-            marginBottom: 16,
-          }}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: 40,
-          }}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+
+      <FlatList
+        data={spaces}
+        numColumns={2}
+        showsVerticalScrollIndicator={false}
+        columnWrapperStyle={{
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingBottom: 40,
+        }}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => {
+          console.log("availableReservation:", item.availableReservation);  // 디버깅용
+          return (
             <SpaceCard
               {...item}
+              availableReservation={item.availableReservation}
               onPress={() =>
-                navigation.navigate("Reservation", { facilityId: item.id })
+                navigation.navigate("Reservation", {
+                  facilityId: item.id,
+                  userId: userId,
+                })
               }
             />
-          )}
-        />
+          );
+        }}
+      />
       )}
     </SafeAreaView>
   );
