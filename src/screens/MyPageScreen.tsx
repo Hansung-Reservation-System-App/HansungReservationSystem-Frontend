@@ -94,13 +94,6 @@ const MyPageInfo = ({
         body
       );
 
-      // 네가 준 응답 형태 기준
-      // {
-      //   "isSucess": true,
-      //   "code": "string",
-      //   "message": "string",
-      //   "data": { ... }
-      // }
       if (response.data?.isSucess) {
         setOriginalProfile(profile);
         setIsDirty(false);
@@ -263,58 +256,155 @@ const MyReservations = ({ userId }: MyReservationsProps) => {
   const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
   const [pastReservations, setPastReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [extendLoading, setExtendLoading] = useState(false); // 🔹 연장 중 여부
+  const [cancelLoading, setCancelLoading] = useState(false); // 🔹 취소 중 여부
 
-  // 🔧 타임스탬프 → Date → 문자열 포맷 함수들
-  const toDate = (ts: { seconds: number; nanos: number }) =>
-    new Date(ts.seconds * 1000);
+  // 🔧 UTC 기준 timestamp → KST(UTC+9) Date로 변환
+const toDate = (ts: { seconds: number; nanos: number }) => {
+  const utcMillis = ts.seconds * 1000;
+  const KST_OFFSET = 9 * 60 * 60 * 1000; // 9시간
+  return new Date(utcMillis + KST_OFFSET);
+};
 
-  const formatDate = (ts: { seconds: number; nanos: number }) => {
-    const d = toDate(ts);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
+const formatDate = (ts: { seconds: number; nanos: number }) => {
+  const d = toDate(ts);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 
-  const formatTime = (ts: { seconds: number; nanos: number }) => {
-    const d = toDate(ts);
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
-    return `${hh}:${mi}`;
-  };
+const formatTime = (ts: { seconds: number; nanos: number }) => {
+  const d = toDate(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mi}`;
+};
 
   const formatTimeRange = (
     start: { seconds: number; nanos: number },
     end: { seconds: number; nanos: number }
   ) => `${formatTime(start)} - ${formatTime(end)}`;
 
-  useEffect(() => {
+  // 🔹 예약 목록 조회 함수 분리
+  const fetchReservations = async () => {
     if (!userId) return;
 
-    const fetchReservations = async () => {
-      try {
-        const res = await axios.get(
-          `http://10.0.2.2:8080/api/reservations/my/${userId}`
-        );
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `http://10.0.2.2:8080/api/reservations/my/${userId}`
+      );
 
-        const list: Reservation[] = res.data.data ?? [];
+      const list: Reservation[] = res.data.data ?? [];
 
-        // active 기준으로 진행 / 과거 나누기
-        const actives = list.filter((r) => r.active);
-        const past = list.filter((r) => !r.active);
+      // ✅ status가 "취소" 인 건 무조건 이전 예약으로 보냄
+      const actives = list.filter(
+        (r) => r.active && r.status !== "취소"
+      );
+      const past = list.filter(
+        (r) => !r.active || r.status === "취소"
+      );
 
-        setActiveReservation(actives[0] ?? null);
-        // 만약 active가 여러 개라면 1개만 “진행중”에 쓰고 나머지는 밑으로 내리기
-        setPastReservations([...past, ...actives.slice(1)]);
-      } catch (err) {
-        console.error("예약 목록 조회 실패:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setActiveReservation(actives[0] ?? null);
+      setPastReservations([...past, ...actives.slice(1)]);
 
+      console.log("🔹 my reservations:", list);
+    } catch (err) {
+      console.error("예약 목록 조회 실패:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchReservations();
   }, [userId]);
+
+  // 🔹 연장하기 버튼 핸들러
+  const handleExtend = async () => {
+  if (!activeReservation || extendLoading) return;
+
+  try {
+    setExtendLoading(true);
+
+    const res = await axios.put(
+      `http://10.0.2.2:8080/api/reservations/extend/${activeReservation.id}`,
+      {}
+    );
+
+    console.log("🔹 extend response:", res.status, res.data);
+
+    const isSuccess = res.data?.isSucess === true;
+    if (isSuccess) {
+      // 1️⃣ 서버가 돌려준 최신 예약으로 화면을 즉시 갱신
+      const updated: Reservation = res.data.data;
+      setActiveReservation(updated);
+
+      Alert.alert("성공", "예약 시간이 2시간 연장되었습니다.");
+
+      // 2️⃣ 그 다음, 서버 기준 전체 목록으로 한 번 더 동기화
+      await fetchReservations();
+    } else {
+      Alert.alert(
+        "실패",
+        res.data?.message || "예약 연장에 실패했습니다."
+      );
+    }
+  } catch (err: any) {
+    console.error(
+      "예약 연장 실패:",
+      err.response?.status,
+      err.response?.data || err
+    );
+    Alert.alert("실패", "예약 연장 중 오류가 발생했습니다.");
+  } finally {
+    setExtendLoading(false);
+  }
+};
+
+  // 🔹 취소하기 버튼 핸들러 수정
+  const handleCancel = async () => {
+  if (!activeReservation || cancelLoading) return;
+
+  try {
+    setCancelLoading(true);
+    console.log("🔹 cancel target id:", activeReservation.id);
+
+    const res = await axios.put(
+      `http://10.0.2.2:8080/api/reservations/cancel/${activeReservation.id}`,
+      {}
+    );
+
+    console.log("🔹 cancel response:", res.status, res.data);
+
+    const isSuccess = res.data?.isSucess === true;
+
+    if (isSuccess) {
+      Alert.alert("성공", "예약이 취소되었습니다.");
+      await fetchReservations(); // ✅ 서버 상태 다시 반영
+    } else {
+      Alert.alert(
+        "실패",
+        res.data?.message || "예약이 취소되지 않았습니다.\n관리자에게 문의하세요."
+      );
+    }
+  } catch (err: any) {
+    // 여기서 백엔드 에러 메시지를 꼭 찍어보자
+    if (axios.isAxiosError(err)) {
+      console.error(
+        "예약 취소 실패:",
+        err.response?.status,
+        err.response?.data
+      );
+    } else {
+      console.error("예약 취소 실패(기타):", err);
+    }
+    Alert.alert("실패", "예약 취소 중 오류가 발생했습니다.");
+  } finally {
+    setCancelLoading(false);
+  }
+};
 
   return (
     <ScrollView style={styles.scrollContainer}>
@@ -338,7 +428,6 @@ const MyReservations = ({ userId }: MyReservationsProps) => {
 
             <View style={styles.reservationDetail}>
               <Ionicons name="location-outline" size={16} color="#FF3E8A" />
-              {/* 시설 이름이 필요하면 나중에 facility API에서 조인 */}
               <Text style={styles.reservationDetailText}>
                 {activeReservation.facilityId}
               </Text>
@@ -361,24 +450,28 @@ const MyReservations = ({ userId }: MyReservationsProps) => {
               </Text>
             </View>
 
-            {/* 버튼들 (API는 나중에 붙이기) */}
+            {/* 버튼들 */}
             <View style={styles.reservationButtons}>
+              {/* 연장하기 */}
               <TouchableOpacity
                 style={styles.extendButton}
-                onPress={() => {
-                  // TODO: 예약 연장 API (예: POST /api/reservations/{id}/extend)
-                }}
+                onPress={handleExtend}
+                disabled={extendLoading || cancelLoading}
               >
-                <Text style={styles.extendButtonText}>연장하기</Text>
+                <Text style={styles.extendButtonText}>
+                  {extendLoading ? "연장 중..." : "연장하기"}
+                </Text>
               </TouchableOpacity>
 
+              {/* 취소하기 */}
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => {
-                  // TODO: 예약 취소 API (예: POST /api/reservations/{id}/cancel)
-                }}
+                onPress={handleCancel}
+                disabled={cancelLoading || extendLoading}
               >
-                <Text style={styles.cancelButtonText}>취소하기</Text>
+                <Text style={styles.cancelButtonText}>
+                  {cancelLoading ? "취소 중..." : "취소하기"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -442,7 +535,7 @@ export default function MyPageScreen({ route, navigation }: any) {
       // 예시) AsyncStorage 쓰고 있다면:
       // await AsyncStorage.removeItem('accessToken');
       // await AsyncStorage.removeItem('refreshToken');
-      // await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('userId');
 
       // 2) 네비게이션 스택을 Login으로 초기화
       navigation.reset({
@@ -493,8 +586,8 @@ useEffect(() => {
       setStudentId(data.userId);
       setPhoneNumber(data.phoneNumber);
       setPassword(data.password ?? "");
-      setTotalUseMinutes(String(data.totalUseMinutes ?? ""));
-      setTotalReservationCount(String(data.totalReservationCount ?? ""));
+      //setTotalUseMinutes(String(data.totalUseMinutes ?? ""));
+      //setTotalReservationCount(String(data.totalReservationCount ?? ""));
     } catch (error) {
       console.error("마이페이지 조회 실패:", error);
     }
@@ -502,6 +595,46 @@ useEffect(() => {
 
   fetchMyPage();
 }, [realUserId]);  // 🔥 중요: realUserId 변경될 때마다 MyPage 재로드
+
+// 통계 카드 
+useEffect(() => {
+  const fetchStatsFromReservations = async () => {
+    if (!realUserId) return; // userId 아직 없으면 패스
+
+    try {
+      const res = await axios.get(
+        `http://10.0.2.2:8080/api/reservations/my/${realUserId}`
+      );
+
+      const list: Reservation[] = res.data.data ?? [];
+
+      // 1) 취소된 예약(status === "취소")는 통계에서 제외한다고 가정
+      const validReservations = list.filter(r => r.status !== "취소");
+
+      // 2) 총 예약 횟수 = validReservations 개수
+      const totalCount = validReservations.length;
+
+      // 3) 총 이용 시간(분) = 각 예약의 (end - start) 합산
+      const totalMinutes = validReservations.reduce((sum, r) => {
+        const diffSeconds = r.endTime.seconds - r.startTime.seconds;
+        const diffMinutes = Math.max(0, Math.floor(diffSeconds / 60));
+        return sum + diffMinutes;
+      }, 0);
+
+      // 4) 상태에 반영 (문자열로)
+      setTotalUseMinutes(String(totalMinutes));
+      setTotalReservationCount(String(totalCount));
+    } catch (err) {
+      console.error("통계 계산용 예약 조회 실패:", err);
+      // 실패하면 기존 값 그대로 두고, 필요하면 여기서 "-"로 초기화해도 됨
+      // setTotalUseMinutes("");
+      // setTotalReservationCount("");
+    }
+  };
+
+  fetchStatsFromReservations();
+}, [realUserId]);
+
 
 
   return (

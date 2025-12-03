@@ -1,7 +1,7 @@
 // src/screens/SeatReservationScreen.tsx
 import React, { useEffect, useState } from "react";
 import { Alert } from "react-native"; // 맨 위 import 에 추가
-
+import RoomReservationScreen from "./RoomReservationScreen";
 import {
   View,
   Text,

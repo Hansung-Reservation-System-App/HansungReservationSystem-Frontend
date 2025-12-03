@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+// src/screens/RoomReservationScreen.tsx
+
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,9 +13,61 @@ import axios from "axios";
 
 type RoomReservationProps = {
   facilityId: string;
-  userId: string;
+  userId: string | null;
   facilityName: string;
   navigation: any;
+  onReserved: () => void;
+};
+
+/* ------------------ Firestore Timestamp ------------------ */
+const toFirestoreTimestamp = (date: Date) => ({
+  seconds: Math.floor(date.getTime() / 1000),
+  nanos: 0,
+});
+
+/* ------------------ 시간 포맷 ------------------ */
+const formatTime = (ts: { seconds: number; nanos: number }) => {
+  const d = new Date(ts.seconds * 1000);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
+
+const formatTimeRange = (
+  start: { seconds: number; nanos: number },
+  end: { seconds: number; nanos: number }
+) => `${formatTime(start)} - ${formatTime(end)}`;
+
+/* ------------------ 시설별 방 구성 ------------------ */
+const roomLayoutByFacility: Record<string, string[][]> = {
+  facility3: [
+    ["그룹스터디실(3F-1)", "그룹스터디실(3F-2)", "그룹스터디실(4F)"],
+    ["그룹스터디실(5F)", "그룹스터디실(6F)", "코워킹룸(3F)"],
+    ["회의실(5F상상커먼스)"],
+  ],
+  facility4: [
+    ["IB101", "IB102", "IB103"],
+    ["IB104", "IB105", "IB106"],
+    ["IB107", "IB108", "IB111"],
+  ],
+  facility5: [
+    ["Challenge", "Collaboration", "Communication"],
+    ["Convergence", "Creativity", "Critical Thinking"],
+  ],
+};
+
+/* ------------------ 운영 시간 ------------------ */
+const generateTimeSlots = (open: string, close: string): string[] => {
+  const [openH] = open.split(":").map(Number);
+  const [closeH] = close.split(":").map(Number);
+
+  const slots: string[] = [];
+  let cur = openH;
+  while (cur + 2 <= closeH) {
+    slots.push(`${String(cur).padStart(2, "0")}:00`);
+    cur += 2;
+  }
+  return slots;
 };
 
 export default function RoomReservationScreen({
@@ -21,218 +75,360 @@ export default function RoomReservationScreen({
   userId,
   facilityName,
   navigation,
+  onReserved,
 }: RoomReservationProps) {
-  
-  // 1. 예약 가능한 시간대 목록 (09:00 ~ 22:00)
-  const timeSlots = [
-    "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00",
-    "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"
-  ];
+  const roomRows = roomLayoutByFacility[facilityId] ?? [];
+  const flatRooms = useMemo(() => roomRows.flat(), [roomRows]);
 
-  // 이미 예약된 시간 (백엔드에서 받아올 데이터)
-  const [reservedTimes, setReservedTimes] = useState<string[]>([]);
-  // 사용자가 선택한 시간
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-
-  useEffect(() => {
-    // TODO: 백엔드 API 연동 (시설 ID에 따른 예약된 시간 조회)
-    // 지금은 테스트를 위해 임시로 '12:00', '13:00'이 이미 찼다고 가정합니다.
-    setReservedTimes(["12:00", "13:00", "18:00"]);
-
-    /* axios.get(`http://10.0.2.2:8080/api/reservations/rooms/${facilityId}`)
-      .then(res => setReservedTimes(res.data.reservedTimes))
-      .catch(err => console.error(err));
-    */
+  /* 운영 시간 슬롯 */
+  const timeSlots = useMemo(() => {
+    if (facilityId === "facility3" || facilityId === "facility4") {
+      return generateTimeSlots("09:00", "21:00");
+    }
+    if (facilityId === "facility5") {
+      return generateTimeSlots("09:00", "19:00");
+    }
+    return [];
   }, [facilityId]);
 
-  const handleReservation = async () => {
-    if (!selectedTime) return;
+  /* 상태 */
+  const [reservedRooms, setReservedRooms] = useState<string[]>([]);
+  const [reservedTimes, setReservedTimes] = useState<string[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-    // TODO: 실제 예약 API 호출
-    console.log(`예약 요청: ${facilityName}, 시간: ${selectedTime}`);
+  /* seatNumber → 방 이름 */
+  const seatNumberToLabel = (n: number) => flatRooms[n - 1] ?? null;
 
-    Alert.alert("예약 성공", `${selectedTime} 시간에 예약되었습니다.`, [
-      {
-        text: "확인",
-        onPress: () => navigation.navigate("Home"), // 혹은 완료 화면으로 이동
-      },
-    ]);
+  /* ------------------ 예약된 룸/시간 조회 ------------------ */
+  useEffect(() => {
+    axios
+      .get(`http://10.0.2.2:8080/api/reservations/seats/${facilityId}`)
+      .then((res) => {
+        const reservations = res.data.data;
+        const rooms: string[] = [];
+        const times: string[] = [];
+
+        reservations.forEach((r: any) => {
+          const roomLabel = seatNumberToLabel(r.seatNumber);
+          if (!roomLabel) return;
+
+          rooms.push(roomLabel);
+
+          // 08:00 ~ 20:00 중 예약된 시작시간 가져오기
+          const d = new Date(r.startTime.seconds * 1000);
+          const hh = String(d.getHours()).padStart(2, "0") + ":00";
+
+          times.push(`${roomLabel}_${hh}`);
+        });
+
+        setReservedRooms(rooms);
+        setReservedTimes(times);
+      })
+      .catch((err) => console.error("예약 조회 실패:", err));
+  }, [facilityId]);
+
+  /* 방 이름 → seatNumber */
+  const labelToSeatNumber = (label: string) =>
+    flatRooms.indexOf(label) + 1;
+
+  /* ------------------ 예약하기 ------------------ */
+const handleReservation = async () => {
+    if (!selectedRoom || !selectedTime) {
+      Alert.alert("예약 실패", "방과 시간을 모두 선택해주세요.");
+      return;
+    }
+    if (!userId) {
+      Alert.alert("예약 실패", "로그인 정보가 없습니다.");
+      return;
+    }
+
+    /* 1. 기기 시간대 무시하고 강제로 KST 기준 오늘 날짜 구하기 */
+    const now = new Date();
+    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60 * 1000); 
+    const kstGap = 9 * 60 * 60 * 1000; 
+    const todayKst = new Date(utcNow + kstGap);
+
+    const year = todayKst.getFullYear();
+    const month = todayKst.getMonth();
+    const day = todayKst.getDate();
+
+    const [hhStr, mmStr] = selectedTime.split(":");
+    const hour = parseInt(hhStr);
+    const minute = parseInt(mmStr);
+
+    /* 2. Firestore 저장용 Timestamp 생성 (UTC 변환) */
+    // 한국 시간 9시는 UTC 0시이므로 (hour - 9)를 해줍니다.
+    const start = new Date(Date.UTC(year, month, day, hour - 9, minute));
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // 2시간 이용
+
+    const startTs = toFirestoreTimestamp(start);
+    const endTs = toFirestoreTimestamp(end);
+
+    /* 3. 알림 메시지용 문자열 생성 (KST 기준 직접 포맷팅) */
+    const startHourStr = String(hour).padStart(2, "0");
+    const endHourStr = String(hour + 2).padStart(2, "0"); // 종료 시간은 +2시간
+    const minStr = String(minute).padStart(2, "0");
+    
+    const alertDateStr = `${month + 1}월 ${day}일`; // 예: 12월 4일
+    const alertTimeStr = `${startHourStr}:${minStr} - ${endHourStr}:${minStr}`;
+
+    const payload = {
+      facilityId,
+      userId,
+      seatNumber: labelToSeatNumber(selectedRoom),
+      startTime: startTs,
+      endTime: endTs,
+    };
+
+    try {
+      await axios.post("http://10.0.2.2:8080/api/reservations", payload);
+
+      Alert.alert(
+        "예약 완료",
+        `${facilityName} ${selectedRoom}\n${alertDateStr} ${alertTimeStr}`
+      );
+
+      onReserved && onReserved();
+    } catch (err) {
+      console.error("룸 예약 실패:", err);
+      Alert.alert("예약 실패", "잠시 후 다시 시도해주세요.");
+    }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      
-      {/* 1. 상단 정보 박스 (좌석 화면과 동일 디자인) */}
+      {/* 이용 가능 */}
       <View style={styles.infoBox}>
-        <Text style={styles.infoLabel}>이용 가능 시간</Text>
+        <Text style={styles.infoLabel}>이용 가능</Text>
         <Text style={styles.infoCount}>
-          {timeSlots.length - reservedTimes.length} 타임
+          {flatRooms.length - reservedRooms.length}개
         </Text>
       </View>
 
-      {/* 2. 상태 설명 (좌석 화면과 동일 디자인) */}
-      <View style={styles.statusLabelContainer}>
-        <View style={styles.statusLabelItem}>
-          <View style={[styles.statusColorBox, { borderColor: "#5D5FFE" }]} />
-          <Text style={styles.statusLabelText}>예약 가능</Text>
+      {/* 상태 */}
+      <View style={styles.statusRow}>
+        <View style={styles.statusItem}>
+          <View style={[styles.statusColor, { borderColor: "#5D5FFE" }]} />
+          <Text style={styles.statusText}>선택 가능</Text>
         </View>
 
-        <View style={styles.statusLabelItem}>
-          <View style={[styles.statusColorBox, { backgroundColor: "#D9D9D9", borderColor: "#D9D9D9" }]} />
-          <Text style={styles.statusLabelText}>마감됨</Text>
+        <View style={styles.statusItem}>
+          <View style={[styles.statusColor, { backgroundColor: "#D9D9D9" }]} />
+          <Text style={styles.statusText}>사용 중</Text>
         </View>
 
-        <View style={styles.statusLabelItem}>
-          <View style={[styles.statusColorBox, { backgroundColor: "#5D5FFE", borderColor: "#5D5FFE" }]} />
-          <Text style={styles.statusLabelText}>선택됨</Text>
+        <View style={styles.statusItem}>
+          <View style={[styles.statusColor, { backgroundColor: "#5D5FFE" }]} />
+          <Text style={styles.statusText}>선택됨</Text>
         </View>
       </View>
 
-      {/* 3. 시간 선택 그리드 (좌석 대신 시간 버튼) */}
-      <View style={styles.gridContainer}>
-        {timeSlots.map((time, index) => {
-          const isReserved = reservedTimes.includes(time);
-          const isSelected = selectedTime === time;
+      {/* 방 선택 */}
+      {roomRows.map((row, ri) => (
+        <View key={ri} style={styles.row}>
+          {row.map((room) => {
+            const reserved = reservedRooms.includes(room);
+            const selected = selectedRoom === room;
+
+            return (
+              <TouchableOpacity
+                key={room}
+                disabled={reserved}
+                onPress={() => setSelectedRoom(room)}
+                style={[
+                  styles.roomBtn,
+                  reserved && styles.roomReserved,
+                  selected && styles.roomSelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roomText,
+                    reserved && styles.textReserved,
+                    selected && styles.textSelected,
+                  ]}
+                >
+                  {room}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+
+      {/* 시간 선택 */}
+      <Text style={styles.timeTitle}>시간 선택</Text>
+
+      <View style={styles.timeRow}>
+        {timeSlots.map((t) => {
+          const isReserved = reservedTimes.includes(`${selectedRoom}_${t}`);
+          const selected = selectedTime === t;
 
           return (
             <TouchableOpacity
-              key={index}
-              disabled={isReserved}
-              onPress={() => setSelectedTime(time)}
+              key={t}
+              disabled={isReserved || !selectedRoom}
+              onPress={() => setSelectedTime(t)}
               style={[
-                styles.timeSlot,
-                isReserved && styles.disabledSlot,
-                isSelected && styles.selectedSlot,
+                styles.timeBtn,
+                selected && styles.timeBtnSelected,
+                isReserved && styles.timeBtnReserved,
+                !selectedRoom && styles.timeBtnDisabled,
               ]}
             >
               <Text
                 style={[
                   styles.timeText,
-                  isReserved && styles.disabledText,
-                  isSelected && styles.selectedText,
+                  selected && styles.timeTextSelected,
+                  isReserved && styles.timeTextReserved,
                 ]}
               >
-                {time}
+                {t}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* 4. 하단 바텀 시트 (좌석 화면과 동일 로직) */}
-      {selectedTime && (
+      {/* 예약 버튼 */}
+      {selectedRoom && selectedTime && (
         <View style={styles.bottomSheet}>
           <Text style={styles.sheetTitle}>
-            선택한 시간: <Text style={{color:"#5D5FFE"}}>{selectedTime}</Text>
-          </Text>
-          <Text style={styles.sheetSubTitle}>
-             1시간 이용이 가능합니다.
+            {selectedRoom} / {selectedTime} 시작
           </Text>
 
           <TouchableOpacity
-            style={styles.confirmButton}
+            style={styles.confirmBtn}
             onPress={handleReservation}
           >
-            <Text style={styles.confirmText}>이 시간으로 예약하기</Text>
+            <Text style={styles.confirmText}>룸 예약하기</Text>
           </TouchableOpacity>
         </View>
       )}
-
     </ScrollView>
   );
 }
 
-/* 스타일은 SeatReservationScreen과 90% 유사하게 구성 */
+/* ------------------ 스타일 ------------------ */
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 140,
     alignItems: "center",
-    paddingBottom: 120, // 바텀시트 공간 확보
   },
-  // 상단 정보 박스
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    width: "90%",
-    marginBottom: 20,
-    elevation: 2, // 안드로이드 그림자
-    shadowColor: "#000", // iOS 그림자
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  infoLabel: { fontWeight: "bold", color: "#444", fontSize: 16 },
-  infoCount: { marginLeft: "auto", color: "#5D5FFE", fontWeight: "bold", fontSize: 18 },
 
-  // 상태 라벨 (범례)
-  statusLabelContainer: {
+  infoBox: {
+    width: "90%",
+    padding: 14,
+    backgroundColor: "#fff",
+    borderRadius: 12,
     flexDirection: "row",
-    justifyContent: "space-between", // 간격 벌리기
-    width: "85%",
+    elevation: 2,
+    marginBottom: 12,
+  },
+  infoLabel: { fontWeight: "bold", color: "#444" },
+  infoCount: { marginLeft: 10, color: "#5D5FFE", fontWeight: "bold" },
+
+  statusRow: {
+    flexDirection: "row",
+    width: "90%",
+    justifyContent: "space-around",
     marginBottom: 20,
   },
-  statusLabelItem: { flexDirection: "row", alignItems: "center" },
-  statusColorBox: {
-    width: 16,
-    height: 16,
+  statusItem: { flexDirection: "row", alignItems: "center" },
+  statusColor: {
+    width: 18,
+    height: 18,
     borderWidth: 2,
     borderRadius: 4,
     marginRight: 6,
   },
-  statusLabelText: { fontSize: 14, color: "#555" },
+  statusText: { color: "#555" },
 
-  // 시간표 그리드 컨테이너
-  gridContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap", // 줄바꿈 허용
-    justifyContent: "space-between", // 양옆 정렬
-    width: "90%",
-  },
-  // 개별 시간 버튼 스타일 (좌석 모양 변형)
-  timeSlot: {
-    width: "31%", // 한 줄에 3개씩 (여백 포함)
-    aspectRatio: 2.2, // 직사각형 비율
-    marginBottom: 12,
-    borderRadius: 10,
+  row: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10 },
+
+  roomBtn: {
+    minWidth: 95,
+    height: 45,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: "#5D5FFE",
+    marginHorizontal: 4,
+    marginVertical: 4,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    paddingHorizontal: 4,
   },
-  timeText: { color: "#5D5FFE", fontWeight: "600", fontSize: 16 },
+  roomText: {
+    color: "#5D5FFE",
+    fontWeight: "600",
+    fontSize: 11,
+    textAlign: "center",
+  },
+  roomReserved: {
+    backgroundColor: "#D9D9D9",
+    borderColor: "#aaa",
+  },
+  textReserved: { color: "#999" },
+  roomSelected: { backgroundColor: "#5D5FFE" },
+  textSelected: { color: "#fff" },
 
-  // 상태별 스타일
-  disabledSlot: { backgroundColor: "#D9D9D9", borderColor: "#D9D9D9" },
-  disabledText: { color: "#999" },
-  selectedSlot: { backgroundColor: "#5D5FFE", borderColor: "#5D5FFE" },
-  selectedText: { color: "#fff" },
+  timeTitle: {
+    width: "90%",
+    fontWeight: "bold",
+    marginBottom: 10,
+    marginTop: 20,
+  },
 
-  // 바텀 시트
+  timeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: "90%",
+  },
+
+  timeBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#5D5FFE",
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  timeBtnSelected: { backgroundColor: "#5D5FFE" },
+  timeBtnReserved: {
+    backgroundColor: "#D9D9D9",
+    borderColor: "#aaa",
+  },
+  timeBtnDisabled: { opacity: 0.4 },
+
+  timeText: { color: "#5D5FFE", fontWeight: "500" },
+  timeTextSelected: { color: "#fff" },
+  timeTextReserved: { color: "#999" },
+
   bottomSheet: {
+    width: "100%",
     position: "absolute",
     bottom: 0,
-    width: "100%",
-    padding: 24,
+    padding: 20,
     backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    elevation: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    elevation: 10,
   },
-  sheetTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 6, color:'#333' },
-  sheetSubTitle: { fontSize: 14, color: '#888', marginBottom: 20 },
-  confirmButton: {
+
+  sheetTitle: { fontWeight: "bold", marginBottom: 16 },
+
+  confirmBtn: {
     backgroundColor: "#5D5FFE",
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
-  confirmText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  confirmText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
 });
