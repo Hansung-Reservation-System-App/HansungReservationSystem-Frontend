@@ -17,7 +17,7 @@ export default function HomeHeader({ userId }: any) {
 
   // user 아이콘 클릭 시 MyPage로 이동하는 함수
   const goToMyPage = () => {
-    navigation.navigate("MyPage", { userId }); // MyPageScreen으로 바로 이동
+    navigation.navigate("MyPage"); // MyPageScreen으로 바로 이동
   };
   return (
     <LinearGradient

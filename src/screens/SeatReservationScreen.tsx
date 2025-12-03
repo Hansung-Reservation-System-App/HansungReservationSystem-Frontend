@@ -13,7 +13,7 @@ import axios from "axios";
 
 type SeatReservationProps = {
   facilityId: string;
-  userId: string;
+  userId: string | null;
   facilityName: string;
   navigation: any;
   onReserved: () => void; 
@@ -79,25 +79,17 @@ const toFirestoreTimestamp = (date: Date) => ({
 const handleReservation = async () => {
   if (!selectedSeat) return;
 
-    /*
-  // 1. userId가 null이 아니고 유효한지 확인
+  // ⭐ userId null 체크 추가
   if (!userId) {
-    Alert.alert("예약 실패", "사용자 정보가 없습니다. 다시 로그인해주세요.");
+    Alert.alert("예약 실패", "로그인 정보가 없습니다. 다시 로그인해주세요.");
     return;
   }
-  */
-  // 2. 중복 예약 체크: 사용자 예약이 있는지 확인
+
   const response = await axios.get(
     `http://10.0.2.2:8080/api/reservations/seats/${facilityId}`
   );
-  
-  const reservedSeats = response.data.data; // 예약된 좌석 목록
 
-  // 3. 이미 예약된 좌석이 있는지 확인
-  if (reservedSeats.includes(selectedSeat)) {
-    Alert.alert("예약 실패", "이미 예약한 좌석입니다. 다른 좌석을 선택해주세요.");
-    return; // 예약을 막고 종료
-  }
+  const reservedSeats = response.data.data;
 
   const seatNumber = labelToSeatNumber(selectedSeat);
   const now = new Date();
@@ -105,34 +97,30 @@ const handleReservation = async () => {
 
   const payload = {
     facilityId,
-    userId,  // userId 확인
+    userId,  // ⭐ 이 시점에서는 string 보장됨
     seatNumber,
     startTime: toFirestoreTimestamp(now),
     endTime: toFirestoreTimestamp(end),
   };
 
-  console.log("[SeatReservationScreen] 예약 요청 payload ↓");
-  console.log(JSON.stringify(payload, null, 2));
+  console.log("[SeatReservationScreen] 예약 payload");
+  console.log(payload);
 
   try {
     await axios.post("http://10.0.2.2:8080/api/reservations", payload);
 
-    // 예약 완료 후 알림 띄우기
-    Alert.alert("예약 완료", `${facilityName} ${selectedSeat} 좌석이 예약되었습니다.`);
+    Alert.alert(
+      "예약 완료",
+      `${facilityName} ${selectedSeat} 좌석이 예약되었습니다.`
+    );
 
-    // 정보 탭으로 이동
-    if (onReserved) {
-      onReserved();
-    }
+    onReserved && onReserved();
 
-  } catch (err: any) {
-    console.error("예약 실패:", err?.response?.data || err);
+  } catch (err) {
+    console.error("예약 실패:", err);
     Alert.alert("예약 실패", "잠시 후 다시 시도해주세요.");
   }
 };
-
-
-
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

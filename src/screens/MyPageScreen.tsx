@@ -6,6 +6,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import styles from "../styles/MyPageStyles";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // 프로필 타입
 type Profile = {
@@ -455,42 +456,53 @@ export default function MyPageScreen({ route, navigation }: any) {
 
   const [name, setName] = useState("");
   const [userId, setUserId] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [totalUseMinutes, setTotalUseMinutes] = useState("");
   const [totalReservationCount, setTotalReservationCount] = useState("");
 
+  useEffect(() => {
+    const loadUserId = async () => {
+      const stored = await AsyncStorage.getItem("userId");
+      if (stored) setUserId(stored);
+    };
+    loadUserId();
+  }, []);
+
   // 🔹 RootNavigator에서 아직 userId를 안 넘기고 있으니까, 우선 fallback
   // <Stack.Screen name="MyPage" component={MyPageScreen} />
-  const pathUserId = route?.params?.userId;
+  const realUserId = userId; 
 
-  useEffect(() => {
-    const fetchMyPage = async () => {
-      try {
-        const response = await axios.get(
-          `http://10.0.2.2:8080/api/users/${pathUserId}`
-        );
+useEffect(() => {
+  const fetchMyPage = async () => {
+    if (!realUserId) return; // userId 아직 로드 안됐으면 실행 안 함
 
-        // ✅ 응답을 사용해서 상태 업데이트
-        // (백엔드가 래핑해서 보내면 response.data.data.name 이런 식으로 맞춰주면 됨)
-        console.log("📌 MyPage response:", response.data);
-        // ✅ 래핑된 data 꺼내기 (중요!!)
-        const data = response.data.data ?? response.data;
-        
-        setName(data.name);
-        setUserId(data.userId);
-        setPhoneNumber(data.phoneNumber);
-        // 비밀번호는 보통 안 내려주니까, 내려오면 쓰고 아니면 빈 문자열
-        setPassword(data.password ?? "");
-        setTotalUseMinutes(String(data.totalUseMinutes ?? ""));
-        setTotalReservationCount(String(data.totalReservationCount ?? ""));
-      } catch (error) {
-        console.error("마이페이지 조회 실패:", error);
-      }
-    };
+    try {
+      const response = await axios.get(
+        `http://10.0.2.2:8080/api/users/${realUserId}`
+      );
 
-    fetchMyPage();
-  }, [pathUserId]);
+      console.log("📌 MyPage response:", response.data);
+
+      // 래핑된 data 꺼내기 (중요)
+      const data = response.data.data ?? response.data;
+
+      // 상태 업데이트
+      setName(data.name);
+      setStudentId(data.userId);
+      setPhoneNumber(data.phoneNumber);
+      setPassword(data.password ?? "");
+      setTotalUseMinutes(String(data.totalUseMinutes ?? ""));
+      setTotalReservationCount(String(data.totalReservationCount ?? ""));
+    } catch (error) {
+      console.error("마이페이지 조회 실패:", error);
+    }
+  };
+
+  fetchMyPage();
+}, [realUserId]);  // 🔥 중요: realUserId 변경될 때마다 MyPage 재로드
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
@@ -536,7 +548,7 @@ export default function MyPageScreen({ route, navigation }: any) {
       {tab === "정보" ? (
         <MyPageInfo
           name={name}
-          studentId={userId}
+          studentId={studentId}
           phone={phoneNumber}
           password={password}
           totalUseMinutes={totalUseMinutes}
@@ -544,7 +556,7 @@ export default function MyPageScreen({ route, navigation }: any) {
           onLogout={handleLogout}
         />
       ) : (
-        <MyReservations userId={pathUserId} />
+        <MyReservations userId={realUserId} />
       )}
     </SafeAreaView>
   );

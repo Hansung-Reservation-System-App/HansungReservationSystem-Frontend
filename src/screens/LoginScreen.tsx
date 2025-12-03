@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import axios from 'axios';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Image } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen({ navigation }: any) {
   const [studentId, setStudentId] = useState('');
@@ -22,10 +23,19 @@ export default function LoginScreen({ navigation }: any) {
       password: pw,       // 비밀번호는 그대로 전달
     });
 
-      if (response.data.isSucess) {
-        const userIdFromServer = response.data.data.userId; // 실제 구조에 맞게 수정
-        navigation.navigate('Home', { userId: userIdFromServer });
-      } else {
+  if (response.data.isSucess) {
+    const userIdFromServer = response.data.data.userId;
+
+    //  AsyncStorage에 userId 저장
+    await AsyncStorage.setItem("userId", userIdFromServer);
+
+    //  userId param 없이 홈으로 이동
+    navigation.reset({
+    index: 0,
+    routes: [{ name: "Home" }],
+    });
+  }
+ else {
         Alert.alert('로그인 실패', '서버 응답 오류');
       }
     } catch (error) {

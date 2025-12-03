@@ -1,16 +1,39 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import FacilityHeader from "../components/FacilityHeader";
 import FacilitiesInformationScreen from "./FacilitiesInformationScreen";
 import SeatReservationScreen from "./SeatReservationScreen";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ReservationHomeScreen({ route, navigation }: any) {
-  const { facilityId, userId } = route.params;
+  const { facilityId } = route.params; // facilityId는 그대로 params 사용
 
   const [tab, setTab] = useState<"정보" | "좌석">("정보");
   const [facilityName, setFacilityName] = useState("시설 정보");
+
+  const [storedUserId, setStoredUserId] = useState<string | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true); // ⭐ userId 로딩 상태
+
+  useEffect(() => {
+    const loadUserId = async () => {
+      try {
+        const saved = await AsyncStorage.getItem("userId");
+        if (!saved) {
+          console.warn("로그인 정보가 없습니다. userId가 null 상태입니다.");
+        } else {
+          setStoredUserId(saved);
+        }
+      } catch (err) {
+        console.error("userId 불러오기 오류:", err);
+      } finally {
+        setLoadingUser(false); // ⭐ 로딩 끝
+      }
+    };
+
+    loadUserId();
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -68,18 +91,36 @@ export default function ReservationHomeScreen({ route, navigation }: any) {
           onNameLoaded={setFacilityName}
         />
       ) : (
-        // 
-        <SeatReservationScreen
-    facilityId={facilityId}
-    userId={userId}
-    facilityName={facilityName}
-    navigation={navigation}
-    onReserved={() => {
-      // 예약 끝나면 정보 탭으로 전환
-      setTab("정보");
-    }}
-  />
-        // 
+        <>
+          {/* ⭐ userId 로딩 중일 때 처리 */}
+          {loadingUser && (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" />
+              <Text style={{ marginTop: 8 }}>사용자 정보를 불러오는 중...</Text>
+            </View>
+          )}
+
+          {/* ⭐ userId 없음 (로그인 문제 등) */}
+          {!loadingUser && !storedUserId && (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+              <Text>로그인 정보가 없습니다. 다시 로그인해주세요.</Text>
+            </View>
+          )}
+
+          {/* ⭐ userId까지 준비 완료된 경우에만 좌석 화면 렌더 */}
+          {!loadingUser && storedUserId && (
+            <SeatReservationScreen
+              facilityId={facilityId}
+              userId={storedUserId} // 이 시점에서는 무조건 string
+              facilityName={facilityName}
+              navigation={navigation}
+              onReserved={() => {
+                // 예약 끝나면 정보 탭으로 전환
+                setTab("정보");
+              }}
+            />
+          )}
+        </>
       )}
     </SafeAreaView>
   );
