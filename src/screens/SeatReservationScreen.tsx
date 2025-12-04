@@ -116,8 +116,26 @@ const handleReservation = async () => {
 
     onReserved && onReserved();
 
-  } catch (err) {
-    console.error("예약 실패:", err);
+  } catch (err: any) {
+    //console.error("예약 실패:", err);
+
+    // ✅ axios 에러인지 확인
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      const code = err.response?.data?.code; // 백엔드 ApiResponse 구조에 맞게 사용
+
+      // 🔥 여기 조건을 백엔드에서 정한 걸로 맞춰주면 됨
+      // 예: HTTP 409 + 코드 "DUPLICATE_ACTIVE_RESERVATION"
+      if (status === 409 || code === "DUPLICATE_ACTIVE_RESERVATION") {
+        Alert.alert(
+          "예약 안내",
+          "이미 진행 중인 예약이 있습니다."
+        );
+        return; // 여기서 끝내고 더 이상 에러를 올리지 않음
+      }
+    }
+
+    // 그 외 에러는 기존 안내 메세지
     Alert.alert("예약 실패", "잠시 후 다시 시도해주세요.");
   }
 };

@@ -182,18 +182,33 @@ const handleReservation = async () => {
     };
 
     try {
-      await axios.post("http://10.0.2.2:8080/api/reservations", payload);
+    await axios.post("http://10.0.2.2:8080/api/reservations", payload);
 
-      Alert.alert(
-        "예약 완료",
-        `${facilityName} ${selectedRoom}\n${alertDateStr} ${alertTimeStr}`
-      );
+    Alert.alert(
+      "예약 완료",
+      `${facilityName} ${selectedRoom}\n${alertDateStr} ${alertTimeStr}`
+    );
 
-      onReserved && onReserved();
-    } catch (err) {
-      console.error("룸 예약 실패:", err);
-      Alert.alert("예약 실패", "잠시 후 다시 시도해주세요.");
+    onReserved && onReserved();
+  } catch (err: any) {
+    //console.error("룸 예약 실패:", err);
+
+    // ✅ axios 에러일 때만 응답 확인
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status;
+      const code = err.response?.data?.code; // 백엔드 ApiResponse 구조에 맞게
+
+      // 🔥 백엔드에서 중복예약일 때 내려주는 값에 맞춰서 조건 설정
+      // 예시: HTTP 409 Conflict + "DUPLICATE_ACTIVE_RESERVATION"
+      if (status === 409 || code === "DUPLICATE_ACTIVE_RESERVATION") {
+        Alert.alert("예약 안내", "이미 진행 중인 예약이 있습니다.");
+        return; // ⬅️ 여기서 끝내고 더 이상 에러 알림 안 띄움
+      }
     }
+
+    // 그 외 에러는 기존 메세지
+    Alert.alert("예약 실패", "잠시 후 다시 시도해주세요.");
+  }
   };
 
   return (
