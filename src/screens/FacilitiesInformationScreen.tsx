@@ -8,27 +8,44 @@ export default function FacilitiesInformationScreen({ facilityId, onNameLoaded }
   const [facility, setFacility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadFacilityDetail = async () => {
-    try {
-      const res = await axios.get(`http://10.0.2.2:8080/api/facilities/${facilityId}`);
+  const loadFacilityDetail = async (showLoading = false) => {
+  try {
+    if (showLoading) {
+      setLoading(true);
+    }
 
-      const data = res.data.data;
-      setFacility(data);
+    const res = await axios.get(`http://10.0.2.2:8080/api/facilities/${facilityId}`);
+    const data = res.data.data;
 
-      if (onNameLoaded && data?.name) {
-        onNameLoaded(data.name);
-      }
+    setFacility(data);
 
-    } catch (err) {
-      console.error("시설 상세 정보 불러오기 실패:", err);
-    } finally {
+    if (onNameLoaded && data?.name) {
+      onNameLoaded(data.name);
+    }
+
+  } catch (err) {
+    console.error("시설 상세 정보 불러오기 실패:", err);
+  } finally {
+    if (showLoading) {
       setLoading(false);
     }
-  };
+  }
+};
 
   useEffect(() => {
-    loadFacilityDetail();
-  }, []);
+  // 처음 들어올 때는 로딩 스피너 보이면서 호출
+  loadFacilityDetail(true);
+
+  // 이후에는 3초마다 한 번씩 데이터 새로고침 (필요하면 간격 조절)
+  const intervalId = setInterval(() => {
+    loadFacilityDetail(false); // 로딩 스피너 없이 데이터만 새로고침
+  }, 3000);
+
+  // 화면 나갈 때 interval 정리
+  return () => {
+    clearInterval(intervalId);
+  };
+}, [facilityId]);
 
   // 로딩 화면
   if (loading) {

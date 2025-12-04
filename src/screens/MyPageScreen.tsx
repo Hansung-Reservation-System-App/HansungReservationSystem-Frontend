@@ -238,8 +238,9 @@ const MyPageInfo = ({
 
 // 예약 타입
 type Reservation = {
-  id: string;
+  reservationId: string;
   facilityId: string;
+  facilityName: String;
   userId: string;
   seatNumber: number;
   startTime: { seconds: number; nanos: number };
@@ -296,6 +297,11 @@ const formatTime = (ts: { seconds: number; nanos: number }) => {
         `http://10.0.2.2:8080/api/reservations/my/${userId}`
       );
 
+      console.log(
+      "📌 [MY] reservations raw response:",
+      JSON.stringify(res.data, null, 2)
+    );
+
       const list: Reservation[] = res.data.data ?? [];
 
       // ✅ status가 "취소" 인 건 무조건 이전 예약으로 보냄
@@ -327,9 +333,10 @@ const formatTime = (ts: { seconds: number; nanos: number }) => {
 
   try {
     setExtendLoading(true);
+    //console.log();
 
     const res = await axios.put(
-      `http://10.0.2.2:8080/api/reservations/extend/${activeReservation.id}`,
+      `http://10.0.2.2:8080/api/reservations/extend/${activeReservation.reservationId}`,
       {}
     );
 
@@ -345,20 +352,22 @@ const formatTime = (ts: { seconds: number; nanos: number }) => {
 
       // 2️⃣ 그 다음, 서버 기준 전체 목록으로 한 번 더 동기화
       await fetchReservations();
-    } else {
-      Alert.alert(
-        "실패",
-        res.data?.message || "예약 연장에 실패했습니다."
-      );
-    }
-  } catch (err: any) {
-    console.error(
-      "예약 연장 실패:",
-      err.response?.status,
-      err.response?.data || err
+    } } catch (err: any) {
+  // Axios 에러인지 먼저 확인
+  if (axios.isAxiosError(err)) {
+    console.log("🔴 status:", err.response?.status);
+    console.log("🔴 headers:", err.response?.headers);
+    console.log(
+      "🔴 response data:",
+      JSON.stringify(err.response?.data, null, 2)  // body만 예쁘게
     );
-    Alert.alert("실패", "예약 연장 중 오류가 발생했습니다.");
-  } finally {
+  } else {
+    console.log("🔴 unknown error:", err);
+  }
+
+  Alert.alert("실패", "예약 연장 중 오류가 발생했습니다.");
+}
+ finally {
     setExtendLoading(false);
   }
 };
@@ -369,10 +378,10 @@ const formatTime = (ts: { seconds: number; nanos: number }) => {
 
   try {
     setCancelLoading(true);
-    console.log("🔹 cancel target id:", activeReservation.id);
+    console.log("🔹 cancel target id:", activeReservation.reservationId);
 
     const res = await axios.put(
-      `http://10.0.2.2:8080/api/reservations/cancel/${activeReservation.id}`,
+      `http://10.0.2.2:8080/api/reservations/cancel/${activeReservation.reservationId}`,
       {}
     );
 
@@ -429,7 +438,7 @@ const formatTime = (ts: { seconds: number; nanos: number }) => {
             <View style={styles.reservationDetail}>
               <Ionicons name="location-outline" size={16} color="#FF3E8A" />
               <Text style={styles.reservationDetailText}>
-                {activeReservation.facilityId}
+                {activeReservation.facilityName}
               </Text>
             </View>
 
@@ -490,17 +499,20 @@ const formatTime = (ts: { seconds: number; nanos: number }) => {
           </Text>
         ) : (
           pastReservations.map((r) => (
-            <View key={r.id} style={styles.pastReservationCard}>
+            <View key={r.reservationId} style={styles.pastReservationCard}>
               <View style={styles.reservationHeader}>
                 <View style={styles.statusBadgeInactive}>
-                  <Text style={styles.statusBadgeText}>완료</Text>
+                  {/* ✅ 취소된 예약이면 "취소", 나머지는 "완료" */}
+                  <Text style={styles.statusBadgeText}>
+                    {r.status === "취소" ? "취소" : "완료"}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.reservationDetail}>
                 <Ionicons name="location-outline" size={16} color="#FF3E8A" />
                 <Text style={styles.reservationDetailText}>
-                  {r.facilityId}
+                  {r.facilityName}
                 </Text>
               </View>
 
