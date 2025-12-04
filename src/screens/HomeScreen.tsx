@@ -13,13 +13,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function HomeScreen({ navigation }: any) {
   const [spaces, setSpaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // 🔥 AsyncStorage에서 불러온 userId (route.params 버림)
   const [userId, setUserId] = useState<string | null>(null);
 
-  // -------------------------------------------------------
-  // 🔹 AsyncStorage에서 userId 불러오기 (앱 처음 + 뒤로가기 시 재실행)
-  // -------------------------------------------------------
+  // 검색어 상태 관리
+  const [searchText, setSearchText] = useState("");
+
   const loadUserId = async () => {
     const stored = await AsyncStorage.getItem("userId");
     if (stored) {
@@ -28,24 +26,20 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   useEffect(() => {
-    loadUserId(); // 앱 최초 실행 시 userId 불러오기
+    loadUserId();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadUserId(); // 뒤로가기 후 홈에 돌아오면 userId 재로드
+      loadUserId();
     }, [])
   );
 
-  // -------------------------------------------------------
-  // 🔹 시설 목록 불러오기 (상세 정보 포함)
-  // -------------------------------------------------------
   const loadFacilities = async () => {
     try {
       const res = await axios.get("http://10.0.2.2:8080/api/facilities");
       const list = res.data.data;
 
-      // 각 시설 상세정보까지 요청
       const facilitiesWithDetail = await Promise.all(
         list.map(async (item: any) => {
           const detailRes = await axios.get(
@@ -66,9 +60,8 @@ export default function HomeScreen({ navigation }: any) {
         })
       );
 
-      // 예약 가능한 시설이 위로 오게 정렬
       const sortedFacilities = facilitiesWithDetail.sort(
-        (a, b) => b.availableReservation - a.availableReservation
+        (a, b) => Number(b.availableReservation) - Number(a.availableReservation)
       );
 
       setSpaces(sortedFacilities);
@@ -79,24 +72,23 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // 최초 실행
   useEffect(() => {
     loadFacilities();
   }, []);
 
-  // 뒤로가기 등으로 화면 포커스되면 다시 불러오기
   useFocusEffect(
     useCallback(() => {
       loadFacilities();
     }, [])
   );
 
-  // -------------------------------------------------------
-  // 🔹 화면 렌더링
-  // -------------------------------------------------------
+  // 검색 로직 (제목에 검색어가 포함된 것만 필터링)
+  const filteredSpaces = spaces.filter((item) =>
+    item.title.toLowerCase().includes(searchText.toLowerCase())
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* 상단 내 정보 표시 헤더 */}
       <HomeHeader />
 
       {/* 검색창 */}
@@ -104,12 +96,16 @@ export default function HomeScreen({ navigation }: any) {
         <TextInput
           placeholder="다른 공간을 찾아보시나요?"
           style={styles.searchInput}
+          // 🔥 [추가 3] 입력값 바인딩 및 업데이트 함수 연결
+          value={searchText}
+          onChangeText={(text) => setSearchText(text)}
+          placeholderTextColor="#999" // 힌트 텍스트 색상
+          returnKeyType="search" // 키보드 엔터 키를 '검색' 모양으로 변경
         />
       </View>
 
       <View style={{ height: 12 }} />
 
-      {/* 로딩 화면 */}
       {loading ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -117,7 +113,8 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       ) : (
         <FlatList
-          data={spaces}
+          //  원본 데이터(spaces) 대신 필터링된 데이터(filteredSpaces) 사용
+          data={filteredSpaces}
           numColumns={2}
           showsVerticalScrollIndicator={false}
           columnWrapperStyle={{
@@ -129,6 +126,12 @@ export default function HomeScreen({ navigation }: any) {
             paddingBottom: 40,
           }}
           keyExtractor={(item) => item.id}
+          // 검색 결과가 없을 때 보여줄 화면 (선택 사항)
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <Text style={{ color: Colors.textGray }}>검색 결과가 없습니다.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <SpaceCard
               {...item}
@@ -136,6 +139,7 @@ export default function HomeScreen({ navigation }: any) {
               onPress={() =>
                 navigation.navigate("Reservation", {
                   facilityId: item.id,
+                  availableReservation: item.availableReservation,
                 })
               }
             />
@@ -165,5 +169,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 15,
     flex: 1,
+    paddingVertical: 0, // 안드로이드 텍스트 상하 잘림 방지
+    color: "#000", // 입력 글씨 색상
   },
 });

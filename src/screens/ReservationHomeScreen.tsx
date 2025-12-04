@@ -1,3 +1,5 @@
+// src/screens/ReservationHomeScreen.tsx
+
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -9,12 +11,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ReservationHomeScreen({ route, navigation }: any) {
-  const { facilityId } = route.params;
+  //  route.params에서 availableReservation을 꺼냄
+  // 만약 값이 안 넘어왔을 경우를 대비해 기본값을 true로 설정.
+  const { facilityId, availableReservation = true } = route.params;
 
   const [tab, setTab] = useState<"정보" | "예약">("정보");
   const [facilityName, setFacilityName] = useState("시설 정보");
 
-  // ⭐ 룸형 시설 목록
+  // 룸형 시설 목록
   const ROOM_FACILITY_IDS = ["facility3", "facility4", "facility5"];
   const isRoomFacility = ROOM_FACILITY_IDS.includes(facilityId);
 
@@ -25,9 +29,7 @@ export default function ReservationHomeScreen({ route, navigation }: any) {
     const loadUserId = async () => {
       try {
         const saved = await AsyncStorage.getItem("userId");
-        if (!saved) {
-          console.warn("로그인 정보 없음");
-        } else {
+        if (saved) {
           setStoredUserId(saved);
         }
       } catch (err) {
@@ -39,6 +41,30 @@ export default function ReservationHomeScreen({ route, navigation }: any) {
     loadUserId();
   }, []);
 
+  // -------------------------------------------------------------
+  //  예약 불가능(false) -> 탭 없이 '정보 화면'만 바로 리턴
+  // -------------------------------------------------------------
+  if (!availableReservation) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+        {/* 헤더 */}
+        <FacilityHeader
+          title={facilityName} 
+          onBack={() => navigation.navigate("Home")}
+        />
+        
+        {/* 탭 바 없이 바로 정보 컴포넌트 렌더링 */}
+        <FacilitiesInformationScreen
+          facilityId={facilityId}
+          onNameLoaded={setFacilityName}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // -------------------------------------------------------------
+  //예약 가능(true) -> 기존처럼 탭 화면 리턴
+  // -------------------------------------------------------------
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       {/* 상단 헤더 */}
@@ -47,7 +73,7 @@ export default function ReservationHomeScreen({ route, navigation }: any) {
         onBack={() => navigation.navigate("Home")}
       />
 
-      {/* 탭 */}
+      {/* 탭 바 (예약 가능한 경우에만 보임) */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           onPress={() => setTab("정보")}
